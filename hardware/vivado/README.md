@@ -1,21 +1,28 @@
-# Vivado block design
+# Vivado design
 
-The repository currently stores the block-design screenshot at:
+This folder contains the exported Vivado block design for the Zynq-7010 implementation.
 
-```text
-docs/images/bearing_anomaly_block_design.png
-```
+![Block design](../../docs/images/bearing_anomaly_block_design.png)
 
-For exact reproduction, open the completed block design in Vivado and export it from the Tcl console:
+## Files
+
+- `block_design.tcl`: recreates the Vivado block design
+- `../hls/fft_energy_axis.cpp`: HLS IP used after the FFT
+
+## Recreate the design
+
+Create a Vivado project for the same Zynq-7010 target, add the exported HLS IP to the IP repository, then run:
 
 ```tcl
-write_bd_tcl -force hardware/vivado/block_design.tcl
+source hardware/vivado/block_design.tcl
+validate_bd_design
+save_bd_design
 ```
 
-Commit `block_design.tcl`, but do not commit generated project runs, IP caches, or `.Xil` directories.
-
-Essential stream path:
+The hardware path is:
 
 ```text
-AXI DMA MM2S → Xilinx FFT → fft_energy_axis → AXI DMA S2MM
+PS → AXI DMA → FFT → fft_energy_axis → AXI DMA → PS
 ```
+
+The input is a 1024-sample complex stream. The output contains 513 floating-point energy bins.
