@@ -385,7 +385,7 @@ dominance_features extract_dominant_frequency_features(float *data, int length, 
     dominance_features_values.dominant_frequency = bins_hz[final_index];
     dominance_features_values.dominant_magnitude = sqrtf(data[final_index]);
 
-    xil_printf("final index %d\r\n", final_index);
+    // xil_printf("final index %d\r\n", final_index);
 
     return dominance_features_values;
 }
