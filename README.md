@@ -111,6 +111,7 @@ Bearing-Anomaly-Detection-on-Zynq-7010/
 │   │   └── fft_energy_axis.cpp
 │   └── vivado/
 │       └── README.md
+│       └── block_design.tcl
 └── software/
     ├── src/
     │   ├── main.c
