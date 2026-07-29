@@ -3,6 +3,7 @@
 #include "xil_cache.h"
 #include "xil_printf.h"
 #include "xparameters.h"
+#include "xtime_l.h"
 
 #include "autoencoder.h"
 #include "decision_making.h"
@@ -23,6 +24,9 @@ XAxiDma AxiDma;
 
 static u64 TxBuffer[FFT_LEN]    __attribute__ ((aligned(64)));
 static u32 RxBuffer[ENERGY_LEN] __attribute__ ((aligned(64)));
+
+XTime start, end;
+double elapsed_ns;
 
 int main()
 {
@@ -53,6 +57,8 @@ int main()
         signal[i] =
             sinf(2.0f * PI_F * 500.0f * i / 12000.0f);
     }
+
+    XTime_GetTime(&start);// just for calculating required time
 
     float32_t signal_preprocessed[1024];
     all_features input_features;
@@ -166,7 +172,10 @@ int main()
     }
 
     float32_t error_r = reconstruct_error(&scaled_features, &output_features);
-    
+    XTime_GetTime(&end);// just for calculating required time
+    elapsed_ns = 1.0 * (end - start)  / COUNTS_PER_SECOND;
+    printf("Execution Time: %.9f s\n", elapsed_ns);
+
     xil_printf("Results\r\n");
     xil_printf("Raw Features : \r\n");
     print_all_features(&input_features);
