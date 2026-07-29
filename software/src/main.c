@@ -25,13 +25,21 @@ XAxiDma AxiDma;
 static u64 TxBuffer[FFT_LEN]    __attribute__ ((aligned(64)));
 static u32 RxBuffer[ENERGY_LEN] __attribute__ ((aligned(64)));
 
-XTime start, end;
-double elapsed_ns;
+static double elapsed_seconds(XTime start, XTime end)
+{
+    return ((double)(end - start)) / ((double)COUNTS_PER_SECOND);
+}
 
 int main()
 {
     int Status;
     XAxiDma_Config *CfgPtr;
+
+    XTime feature_start, feature_end;
+    XTime ae_start, ae_end;
+
+    double feature_time_s;
+    double ae_time_s;
 
     xil_printf("\r\nTest Started\r\n");
 
@@ -58,10 +66,12 @@ int main()
             sinf(2.0f * PI_F * 500.0f * i / 12000.0f);
     }
 
-    XTime_GetTime(&start);// just for calculating required time
+    XTime_GetTime(&feature_start);
 
     float32_t signal_preprocessed[1024];
-    all_features input_features;
+
+    all_features input_features = {0.0f};
+
     input_features.data_mean      = mean(signal, 1024);
     input_features.data_std       = standard_deviation(signal, 1024, input_features.data_mean);
     input_features.data_var       = variance(input_features.data_std);
@@ -72,16 +82,15 @@ int main()
     input_features.data_skewness  = skewness(signal, 1024, input_features.data_mean, input_features.data_std);
     input_features.data_kurtosis  = kurtosis(signal, 1024, input_features.data_mean, input_features.data_std);
 
-    float32_t FFT[516];
-    for (int i = 0; i < ENERGY_LEN; i++) {
-        FFT[i] = 0.0f;
-    }
+    float32_t FFT[516] = {0.0f};
 
-    for (int i = 513; i < 516; i++) {
-        FFT[i] = 0.0f;
-    }
-
-    preprocess_window(signal, 1024, signal_preprocessed, input_features.data_mean, input_features.data_std );
+    preprocess_window(
+        signal,
+        1024,
+        signal_preprocessed,
+        input_features.data_mean,
+        input_features.data_std
+    );
 
     for (int i = 0; i < FFT_LEN; i++) {
         TxBuffer[i] = pack_complex_float(signal_preprocessed[i], 0.0f);
@@ -90,7 +99,6 @@ int main()
     Xil_DCacheFlushRange((UINTPTR)TxBuffer, TX_BYTE_SIZE);
     Xil_DCacheFlushRange((UINTPTR)RxBuffer, RX_BYTE_SIZE);
 
-    // do your fpga part
     Status = XAxiDma_SimpleTransfer(
         &AxiDma,
         (UINTPTR)RxBuffer,
@@ -129,8 +137,6 @@ int main()
 
     Xil_DCacheInvalidateRange((UINTPTR)RxBuffer, RX_BYTE_SIZE);
 
-    // xil_printf("\r\nFFT Energy Output Done\r\n");
-
     for (int i = 0; i < ENERGY_LEN; i++) {
         FFT[i] = u32_to_float(RxBuffer[i]);
     }
@@ -158,37 +164,56 @@ int main()
     input_features.spectral_bandwidth = spectral_values.spectral_bandwidth;
     input_features.spectral_flatness  = spectral_values.spectral_flatness;
 
-    input_features.reserved  = 0.0f;
+    input_features.reserved = 0.0f;
 
     all_features scaled_features = scale_features(&input_features, scaler_mean, scaler_std);
-    all_features output_features = {0.0f};
 
-    scaled_features.reserved  = 0.0f;
-    output_features.reserved  = 0.0f;
+    scaled_features.reserved = 0.0f;
+
+    XTime_GetTime(&feature_end);
+
+    XTime_GetTime(&ae_start);
+
+    all_features output_features = {0.0f};
+    output_features.reserved = 0.0f;
 
     if (auto_encoder(&scaled_features, &output_features) != 0) {
         xil_printf("ERROR: Autoencoder failed\r\n");
         return -1;
     }
 
+    output_features.reserved = 0.0f;
+
     float32_t error_r = reconstruct_error(&scaled_features, &output_features);
-    XTime_GetTime(&end);// just for calculating required time
-    elapsed_ns = 1.0 * (end - start)  / COUNTS_PER_SECOND;
-    printf("Execution Time: %.9f s\n", elapsed_ns);
+
+    XTime_GetTime(&ae_end);
+
+    feature_time_s = elapsed_seconds(feature_start, feature_end);
+    ae_time_s      = elapsed_seconds(ae_start, ae_end);
 
     xil_printf("Results\r\n");
+
+    printf("Feature extraction time          = %.9f s\r\n", feature_time_s);
+    printf("Autoencoder + reconstruct time   = %.9f s\r\n", ae_time_s);
+    printf("Total measured time              = %.9f s\r\n", feature_time_s + ae_time_s);
+
     xil_printf("Raw Features : \r\n");
     print_all_features(&input_features);
+
     xil_printf("Scaled Features : \r\n");
     print_all_features(&scaled_features);
+
     xil_printf("Output Features : \r\n");
     print_all_features(&output_features);
+
     printf("reconstruct_error = %.6f\r\n", (double)error_r);
 
     Decision state = threshold_comparison(error_r, ANOMALY_THRESHOLD);
 
-    if (state == NORMAL ) xil_printf("NORMAL\r\n");
-    else xil_printf("ABNORMAL\r\n");
+    if (state == NORMAL)
+        xil_printf("NORMAL\r\n");
+    else
+        xil_printf("ABNORMAL\r\n");
 
     return XST_SUCCESS;
 }
