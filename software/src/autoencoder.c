@@ -54,28 +54,10 @@ int vector_multiplication_bias_relu(
     const float32x4_t vZero = vdupq_n_f32(0.0f);
 
     for (size_t j = 0U; j < out_size; j += 4U) {
-        /*
-         * vOutput = {
-         *     bias[j + 0],
-         *     bias[j + 1],
-         *     bias[j + 2],
-         *     bias[j + 3]
-         * };
-         */
         float32x4_t vOutput = vld1q_f32(bias + j);
 
         for (size_t i = 0U; i < in_size; ++i) {
-            /*
-             * Expected weight layout:
-             *
-             * weights[i * out_size + j + 0]
-             * weights[i * out_size + j + 1]
-             * weights[i * out_size + j + 2]
-             * weights[i * out_size + j + 3]
-             */
             float32x4_t vWeight = vld1q_f32(weights + i * out_size + j);
-
-            // vOutput += vWeight * input[i]
             vOutput = vmlaq_n_f32(vOutput, vWeight, input[i]);
         }
 
@@ -139,32 +121,12 @@ int vector_multiplication_bias(
     }
 
     for (size_t j = 0U; j < out_size; j += 4U) {
-        /*
-         * vOutput = {
-         *     bias[j + 0],
-         *     bias[j + 1],
-         *     bias[j + 2],
-         *     bias[j + 3]
-         * };
-         */
         float32x4_t vOutput = vld1q_f32(bias + j);
 
         for (size_t i = 0U; i < in_size; ++i) {
-            /*
-             * Expected weight layout:
-             *
-             * weights[i * out_size + j + 0]
-             * weights[i * out_size + j + 1]
-             * weights[i * out_size + j + 2]
-             * weights[i * out_size + j + 3]
-             */
             float32x4_t vWeight = vld1q_f32(weights + i * out_size + j);
-
-            // vOutput += vWeight * input[i]
             vOutput = vmlaq_n_f32(vOutput, vWeight, input[i]);
         }
-
-        /* ReLU: max(weighted_sum + bias, 0). */
         vst1q_f32(output + j, vOutput);
     }
 
