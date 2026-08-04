@@ -22,6 +22,6 @@ float32_t reconstruct_error(all_features* features, all_features* x_hat)
 
 Decision  threshold_comparison(float32_t error_r, float32_t threshold)
 {
-    if (error_r > threshold) return ABNORMAL;
+    if (error_r >= threshold) return ABNORMAL;
     return NORMAL;
 }
